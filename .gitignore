@@ -1,0 +1,7 @@
+# Publish only the course README and the first lab handout.
+/*
+!/.gitignore
+!/README.md
+!/labs/
+/labs/*
+!/labs/01_istanze_ec2_creazione_configurazione_e_tipologie.md

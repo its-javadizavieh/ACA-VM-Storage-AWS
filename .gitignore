@@ -6,3 +6,4 @@
 /labs/*
 !/labs/01_istanze_ec2_creazione_configurazione_e_tipologie.md
 !/labs/02_gestione_ami_ed_elastic_load_balancing.md
+!/labs/03_auto_scaling_group_e_monitoraggio_cloudwatch.md

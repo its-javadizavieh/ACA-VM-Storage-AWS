@@ -4,7 +4,7 @@
 
 - Focus operativo: completare la connettività della VPC `demo-vpc` (dal Lab 04) con Internet Gateway per la subnet pubblica, NAT Gateway per quella privata, e un Bastion Host come unico punto di accesso SSH.
 - Deliverable atteso: routing corretto su entrambe le subnet, salto SSH riuscito verso l'istanza privata, evidenza di connettività in uscita tramite NAT Gateway.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 05 registrato): Internet Gateway `demo-igw`, NAT Gateway `demo-nat`, Bastion Host `demo-bastion` (SG `demo-sg-bastion`), istanza privata di test `demo-private-test` (SG `demo-sg-private`).
+- Nomi di risorsa usati in questa soluzione: Internet Gateway `demo-igw`, NAT Gateway `demo-nat`, Bastion Host `demo-bastion` (SG `demo-sg-bastion`), istanza privata di test `demo-private-test` (SG `demo-sg-private`).
 
 ## Prerequisiti
 
@@ -21,13 +21,17 @@
 
 ## Step
 
-1. Creare l'Internet Gateway **demo-igw**, collegarlo a `demo-vpc`, e aggiungere la rotta `0.0.0.0/0 → demo-igw` a una route table dedicata associata a `demo-subnet-public-1a`.
-2. Lanciare l'istanza privata **demo-private-test** in `demo-subnet-private-1a`, con Security Group **demo-sg-private** che accetta SSH solo dal Security Group del Bastion Host (non da un IP, ma dal SG stesso).
-3. Allocare un Elastic IP e creare il NAT Gateway **demo-nat** in `demo-subnet-public-1a`, associato all'Elastic IP.
-4. Aggiungere la rotta `0.0.0.0/0 → demo-nat` alla route table di `demo-subnet-private-1a`.
-5. Lanciare il Bastion Host **demo-bastion** in subnet pubblica, con Security Group **demo-sg-bastion** che accetta SSH solo dal proprio IP (My IP), non da `0.0.0.0/0`.
-6. Connettersi in SSH a `demo-bastion`, poi effettuare il salto verso `demo-private-test` usando il suo IP privato.
-7. Verificare la connettività in uscita dell'istanza privata (`curl` verso un host pubblico) tramite il NAT Gateway, poi eseguire il cleanup.
+1. Aprire **VPC → Internet Gateways → Create internet gateway**, nome `demo-igw`. Dopo la creazione scegliere **Actions → Attach to VPC → demo-vpc**.
+2. In **Route Tables → Create route table**, creare `demo-rt-public` in `demo-vpc`. In **Routes → Edit routes → Add route**, aggiungere `0.0.0.0/0 → Internet Gateway → demo-igw` e salvare.
+3. In **Subnet associations → Edit subnet associations**, selezionare solo `demo-subnet-public-1a` e salvare. Verificare dalla subnet che la tabella associata sia `demo-rt-public`.
+4. In **Elastic IPs → Allocate Elastic IP address**, allocare un indirizzo. In **NAT Gateways → Create NAT gateway**, impostare `demo-nat`, subnet `demo-subnet-public-1a`, connettività **Public** e l'Elastic IP appena allocato. Attendere `available`.
+5. Aprire **Subnets → demo-subnet-private-1a → Route table**. Sulla main route table ancora associata alla subnet privata aggiungere `0.0.0.0/0 → NAT Gateway → demo-nat`. Verificare che la subnet pubblica continui a usare `demo-rt-public`.
+6. In **EC2 → Launch instances**, creare prima `demo-bastion`: Amazon Linux 2023, `t3.micro`, key pair `demo-key`, VPC `demo-vpc`, subnet `demo-subnet-public-1a`, **Auto-assign public IP → Enable**. Creare `demo-sg-bastion` nella stessa VPC con inbound SSH/TCP 22 da **My IP**.
+7. Creare `demo-private-test`: Amazon Linux 2023, `t3.micro`, stessa key pair, VPC `demo-vpc`, subnet `demo-subnet-private-1a`, **Auto-assign public IP → Disable**. Creare `demo-sg-private` con inbound SSH/TCP 22, **Source → Custom → demo-sg-bastion**. Lasciare l'uscita necessaria per SSH dal bastion e HTTPS dall'istanza privata.
+8. Attendere tutti gli status check. Annotare IP pubblico del bastion e IP privato dell'istanza di test; verificare che quest'ultima non abbia IP pubblico.
+9. Dal computer locale usare la configurazione SSH sotto per raggiungere l'istanza privata passando dal bastion. Verificare il nome dell'host con `hostname`.
+10. Nella sessione SSH dell'istanza privata eseguire `curl -I https://aws.amazon.com`: una risposta HTTP conferma l'uscita via NAT. Documentare rotte, associazioni, Security Group e risultati.
+11. Se si prosegue subito con il Lab 06, conservare entrambe le istanze e la rete. Eliminare il NAT Gateway e rilasciare il suo Elastic IP appena l'accesso Internet dalla subnet privata non serve più; completare il cleanup al termine della sequenza.
 
 ## Esempio di deliverable compilato
 
@@ -68,46 +72,40 @@ Output atteso (illustrativo: gli ID gateway variano a ogni creazione reale):
 ]
 ```
 
-Salto SSH da `demo-bastion` verso `demo-private-test` (eseguito nel terminale connesso al Bastion Host):
+Accesso dal computer locale tramite bastion, usando OpenSSH su Ubuntu, macOS o Windows PowerShell. Creare/modificare `~/.ssh/config` (Windows: `$env:USERPROFILE\.ssh\config`) aggiungendo questi alias; sostituire gli IP con quelli reali:
 
-**Ubuntu (bash) / macOS (zsh/bash)**
+```sshconfig
+Host lab-bastion
+    HostName IP_PUBBLICO_BASTION
+    User ec2-user
+    IdentityFile ~/Downloads/demo-key.pem
+    IdentitiesOnly yes
+
+Host lab-private
+    HostName IP_PRIVATO_ISTANZA
+    User ec2-user
+    IdentityFile ~/Downloads/demo-key.pem
+    IdentitiesOnly yes
+    ProxyJump lab-bastion
+```
+
+Applicare alla chiave i permessi del Lab 01. Dal terminale **locale**:
 
 ```bash
-ssh -i ~/demo-key.pem ec2-user@10.0.2.15
+ssh lab-bastion
+# Verificare il prompt del bastion, poi tornare al computer locale:
+exit
+ssh lab-private
 ```
 
-**Windows PowerShell**
-
-```powershell
-$key = "$env:USERPROFILE\Downloads\demo-key.pem"
-ssh -i $key ec2-user@10.0.2.15
-```
-
-Output atteso:
-
-```
-[ec2-user@ip-10-0-2-15 ~]$
-```
-
-Verifica della connettività in uscita dell'istanza privata tramite NAT Gateway:
-
-**Ubuntu (bash) / macOS (zsh/bash)**
+`ProxyJump` usa il bastion per il collegamento; la chiave privata resta sul computer locale. Nella sessione dell'istanza privata eseguire i seguenti comandi Linux, anche se il terminale locale è PowerShell:
 
 ```bash
-curl -Is https://aws.amazon.com | head -1
+hostname
+curl -I https://aws.amazon.com
 ```
 
-**Windows PowerShell**
-
-```powershell
-(Invoke-WebRequest -Uri https://aws.amazon.com -Method Head).StatusCode
-```
-
-Output atteso:
-
-```
-HTTP/2 200
-```
+Risultato atteso: hostname privato (ad esempio `ip-10-0-2-15`) e una risposta HTTP, per esempio `HTTP/2 200`. Gli IP e la versione HTTP possono variare.
 
 Le due rotte `0.0.0.0/0` (una verso `igw-...`, una verso `nat-...`) confermano che la subnet pubblica ha accesso bidirezionale mentre quella privata ha accesso solo in uscita; il prompt SSH e la risposta HTTP confermano rispettivamente l'accesso amministrativo controllato e la connettività in uscita.
 
@@ -143,7 +141,7 @@ Le due rotte `0.0.0.0/0` (una verso `igw-...`, una verso `nat-...`) confermano c
 - Decisione corretta: il Security Group dell'istanza privata accetta SSH solo dal Security Group del Bastion Host (non da un IP), così la regola resta valida anche se l'IP del Bastion cambia.
 - Evidenza minima: rotte `0.0.0.0/0` verificate su entrambe le subnet, più il salto SSH riuscito e la connettività in uscita confermata.
 - Fallback accettabile: se il Learner Lab non è raggiungibile, disegnare lo schema di routing (IGW, NAT, Bastion) su Markdown.
-- Cleanup atteso: NAT Gateway eliminato (richiede alcuni minuti) con Elastic IP rilasciato, Bastion Host e istanza privata terminati.
+- Cleanup atteso: NAT Gateway eliminato (richiede alcuni minuti) con Elastic IP rilasciato; bastion e istanza privata mantenuti solo se si prosegue subito con il Lab 06, altrimenti terminati.
 
 ## Checkpoint
 
@@ -164,13 +162,16 @@ Le due rotte `0.0.0.0/0` (una verso `igw-...`, una verso `nat-...`) confermano c
 
 - Se l'istanza pubblica non risponde, verifica prima la routing table (rotta verso IGW) e solo dopo il Security Group.
 - Se l'istanza privata non ha accesso a Internet in uscita, verifica che il NAT Gateway sia nello stato `available` e che la rotta `0.0.0.0/0` punti a esso, non all'IGW.
-- Se il salto SSH dal Bastion Host verso l'istanza privata fallisce, verifica che la chiave privata sia presente sul Bastion Host o usa l'agent forwarding SSH.
+- Se il salto SSH fallisce, verifica prima `ssh lab-bastion`, poi gli IP, il percorso locale della chiave e la regola SSH da `demo-sg-bastion` a `demo-sg-private`.
 - Se il NAT Gateway resta a lungo in stato `pending`, attendi qualche minuto: la creazione richiede tempo prima di poter instradare traffico.
 
 ## Cleanup obbligatorio
 
+Se prosegui subito con il Lab 06, conserva bastion, istanza privata, VPC, subnet e Internet Gateway; il test NACL richiede entrambe le istanze. Documenta il riuso. Al termine della sequenza applica tutti i passaggi seguenti.
+
 - Elimina il NAT Gateway creato per il test (l'eliminazione richiede alcuni minuti per completarsi).
 - Rilascia l'Elastic IP associato al NAT Gateway una volta eliminato.
+- Rimuovi dalla tabella privata la rotta verso il NAT Gateway eliminato, per non lasciare una rotta `blackhole`.
 - Termina il Bastion Host e l'istanza privata create per l'esercitazione.
 - Se l'Internet Gateway è stato creato ad hoc, scollegalo dalla VPC ed eliminalo.
 - Conferma nel deliverable che il cleanup è stato completato o indica cosa non è stato possibile rimuovere.

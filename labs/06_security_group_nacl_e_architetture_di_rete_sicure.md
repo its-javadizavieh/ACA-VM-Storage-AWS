@@ -4,7 +4,7 @@
 
 - Focus operativo: applicare il minimo privilegio ai Security Group dell'architettura esistente e aggiungere una Network ACL personalizzata alla subnet privata, verificandone il comportamento stateless.
 - Deliverable atteso: Security Group senza regole `0.0.0.0/0` non necessarie, NACL personalizzata con regole di permesso e negazione, tabella di documentazione delle regole.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 06 registrato): Network ACL `demo-nacl-private`, Security Group `demo-sg-bastion` (dal Lab 05) e `demo-sg-private` (istanza applicativa, dal Lab 05).
+- Nomi di risorsa usati in questa soluzione: Network ACL `demo-nacl-private`, Security Group `demo-sg-bastion` (dal Lab 05) e `demo-sg-private` (istanza applicativa, dal Lab 05).
 
 ## Prerequisiti
 
@@ -16,19 +16,20 @@
 ## Scenario
 
 - Il tuo gruppo deve proteggere l'architettura multi-livello costruita nelle lezioni precedenti, applicando il principio del minimo privilegio.
-- Devi configurare il Security Group dell'istanza applicativa per accettare traffico solo dal load balancer sulla porta applicativa, e SSH solo dal Bastion Host.
+- In questo esercizio devi verificare l'accesso SSH all'istanza privata solo dal Bastion Host; la catena di accesso applicativo tra più livelli viene configurata nel Lab 11.
 - Devi aggiungere una Network ACL personalizzata alla subnet privata e verificarne il comportamento stateless, includendo la regola di uscita necessaria per il traffico di risposta.
 
 ## Step
 
-1. Verificare `demo-sg-private` (Security Group dell'istanza applicativa/privata dal Lab 05): confermare che accetta SSH solo dal Security Group `demo-sg-bastion`, non da un CIDR generico.
-2. Creare la Network ACL personalizzata **demo-nacl-private** in `demo-vpc` e associarla esplicitamente a `demo-subnet-private-1a`.
-3. Aggiungere la regola inbound 100: **Allow** SSH (22) da `10.0.1.0/24` (CIDR della subnet pubblica, da dove arriva il traffico del Bastion Host).
-4. Provare subito il salto SSH da `demo-bastion`: la connessione va in timeout perché manca la regola di uscita.
-5. Aggiungere la regola outbound 100: **Allow** porte effimere (1024-65535) verso `10.0.1.0/24`, necessaria per il traffico di risposta (la NACL è stateless).
-6. Riprovare il salto SSH: ora funziona, confermando la differenza pratica rispetto al Security Group (stateful, non richiede regola di risposta).
-7. Dimostrare la priorità delle regole aggiungendo temporaneamente una regola 50 che nega tutto da `10.0.1.0/24`: il traffico si blocca di nuovo perché la regola 50 viene valutata prima della 100. Rimuovere questa regola di test al termine della verifica.
-8. Documentare ogni regola (Security Group e NACL) con porta, protocollo, origine e motivazione, poi eseguire il cleanup.
+1. Verificare che `demo-bastion` e `demo-private-test` siano attive nella rete dei Lab 04/05; ricrearle con il Lab 05 se già eliminate. Prima di modificare la NACL, verificare `ssh lab-private` dal computer locale con gli alias SSH del Lab 05.
+2. In **EC2 → Security Groups**, verificare `demo-sg-bastion` (SSH dal proprio IP) e `demo-sg-private` (SSH dal gruppo `demo-sg-bastion`). Esaminare anche **Outbound rules**: le risposte a traffico consentito sono ammesse dal comportamento stateful del Security Group.
+3. In **VPC → Network ACLs → Create network ACL**, creare `demo-nacl-private` in `demo-vpc`. Annotare la NACL attualmente associata alla subnet per ripristinarla al termine.
+4. In **Subnet associations → Edit subnet associations**, associare `demo-subnet-private-1a`. Una NACL personalizzata nuova nega inizialmente tutto il traffico.
+5. In **Inbound rules → Edit inbound rules**, aggiungere regola `100`, **SSH/TCP 22**, sorgente `10.0.1.0/24`, **Allow**; salvare. Aprire una nuova connessione SSH alla privata: atteso timeout perché l'uscita è ancora negata.
+6. In **Outbound rules → Edit outbound rules**, aggiungere regola `100`, **Custom TCP**, porte `1024-65535`, destinazione `10.0.1.0/24`, **Allow**; salvare. Riprovare una nuova connessione SSH e verificare il prompt della privata.
+7. Aggiungere temporaneamente in ingresso la regola `50`, **All traffic**, sorgente `10.0.1.0/24`, **Deny**. Verificare che una nuova connessione fallisca: la regola 50 precede la 100.
+8. Rimuovere la regola 50, salvare e verificare di nuovo SSH. Documentare regole e risultati prima/dopo.
+9. Ripristinare l'associazione alla NACL precedente prima dei lab successivi, poi eliminare la NACL di test. Le sole regole SSH di questo esercizio non consentono HTTPS in uscita o NFS per EFS; lasciarle attive bloccherebbe quei servizi.
 
 ## Esempio di deliverable compilato
 
@@ -71,20 +72,13 @@ Output atteso (illustrativo: l'ID NACL varia a ogni creazione reale):
 ]
 ```
 
-Verifica del salto SSH da `demo-bastion` verso `demo-private-test` prima e dopo la regola outbound:
-
-**Ubuntu (bash) / macOS (zsh/bash)**
+Verifica dal computer locale prima e dopo ciascuna modifica, con gli alias SSH configurati nel Lab 05 (Ubuntu, macOS o PowerShell con OpenSSH):
 
 ```bash
-ssh -i ~/demo-key.pem -o ConnectTimeout=5 ec2-user@10.0.2.15
+ssh -o ConnectTimeout=5 lab-private
 ```
 
-**Windows PowerShell**
-
-```powershell
-$key = "$env:USERPROFILE\Downloads\demo-key.pem"
-ssh -i $key -o ConnectTimeout=5 ec2-user@10.0.2.15
-```
+Chiudere con `exit` ogni connessione riuscita prima della prova successiva. Il timeout può essere accompagnato da un messaggio di chiusura del canale del proxy.
 
 Output atteso **prima** della regola outbound 100 (solo inbound presente):
 
@@ -156,4 +150,5 @@ La differenza tra i due output conferma concretamente la natura stateless della 
 - Rimuovi le regole di test troppo permissive (`0.0.0.0/0`) create per velocizzare le verifiche durante il lab.
 - Se la Network ACL personalizzata è stata creata solo per l'esercitazione, ripristina l'associazione della subnet alla NACL di default ed eliminala.
 - Verifica che i Security Group non contengano regole residue non documentate.
+- Se non servono più le istanze dei Lab 04/05, termina bastion e istanza privata seguendo il cleanup del Lab 05. Conserva VPC e subnet per il Lab 11 oppure rimuovile quando non più necessarie.
 - Conferma nel deliverable che il cleanup è stato completato o indica cosa non è stato possibile rimuovere.

@@ -27,6 +27,12 @@ Labs and their solutions are released individually. Currently available:
 | [13](labs/13_logging_cloudtrail_e_allarmi_cloudwatch.md)             | Logging con CloudTrail e allarmi CloudWatch               |
 | [14](labs/14_backup_disaster_recovery_e_ottimizzazione_costi.md)     | Backup, Disaster Recovery e ottimizzazione dei costi      |
 
+## Verifica finale
+
+La verifica finale della Lezione 15 è un **quiz individuale di 30 domande a risposta multipla A/B/C**, con una sola risposta corretta per domanda. Durata: **90 minuti**; punteggio: **1 punto per risposta corretta**, senza penalizzazioni, per un totale di **30 punti**. I contenuti riguardano le lezioni 08-14.
+
+Sono disponibili due set alternativi nella cartella [verifiche](verifiche/); ogni studente svolge un solo set.
+
 ## 👨‍💻 Author
 
 **Seyedhossein Javadizavieh**

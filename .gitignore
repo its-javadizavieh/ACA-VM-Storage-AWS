@@ -11,3 +11,10 @@
 !/labs/05*
 !/labs/06*
 !/labs/07*
+
+# Publish the CloudFormation IaC example and its template files.
+!/labs/iac_esempi/
+/labs/iac_esempi/*
+!/labs/iac_esempi/iac_01_cloudformation_rete.md
+!/labs/iac_esempi/cloudformation/
+!/labs/iac_esempi/cloudformation/**

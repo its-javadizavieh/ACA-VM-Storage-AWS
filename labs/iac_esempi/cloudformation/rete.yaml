@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Esercizio integrativo IaC: VPC con subnet pubblica e privata, senza compute o NAT.'
+
+Parameters:
+  StudentId:
+    Type: String
+    Description: Identificativo dello studente, minuscolo, da 3 a 12 caratteri.
+    AllowedPattern: '^[a-z][a-z0-9-]{2,11}$'
+    ConstraintDescription: Usare 3-12 caratteri, iniziando con una lettera minuscola.
+  Owner:
+    Type: String
+    MinLength: 3
+    MaxLength: 50
+    Description: Nome del responsabile delle risorse, usato come tag.
+
+Resources:
+  LabVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.50.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-vpc'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-igw'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LabVpc
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVpc
+      CidrBlock: 10.50.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-public'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVpc
+      CidrBlock: 10.50.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-private'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVpc
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-rt-public'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVpc
+      Tags:
+        - Key: Name
+          Value: !Sub 'iac-${StudentId}-rt-private'
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: iac-ponte-rete
+  PublicSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+Outputs:
+  VpcId:
+    Value: !Ref LabVpc
+  PublicSubnetId:
+    Value: !Ref PublicSubnet
+  PrivateSubnetId:
+    Value: !Ref PrivateSubnet
+  PublicRouteTableId:
+    Value: !Ref PublicRouteTable
+  PrivateRouteTableId:
+    Value: !Ref PrivateRouteTable
+  InternetGatewayId:
+    Value: !Ref InternetGateway

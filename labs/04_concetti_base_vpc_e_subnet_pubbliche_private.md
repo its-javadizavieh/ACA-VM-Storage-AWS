@@ -4,7 +4,7 @@
 
 - Focus operativo: pianificare e creare una VPC dedicata con una subnet pubblica e una privata, verificando la distinzione pubblica/privata dalla tabella di routing e non dal nome.
 - Deliverable atteso: tabella di pianificazione CIDR, due subnet create con CIDR non sovrapposti, nota che spiega la distinzione pubblica/privata osservata.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 04 registrato): VPC `demo-vpc`, subnet `demo-subnet-public-1a` e `demo-subnet-private-1a`.
+- Nomi di risorsa usati in questa soluzione: VPC `demo-vpc`, subnet `demo-subnet-public-1a` e `demo-subnet-private-1a`.
 
 ## Prerequisiti
 
@@ -21,13 +21,13 @@
 
 ## Step
 
-1. Creare una VPC dedicata **demo-vpc** con CIDR `10.0.0.0/16` (invece di riusare la VPC di default, per costruire un'architettura di rete pulita usata anche nei lab successivi).
-2. Documentare la pianificazione in una tabella prima di creare le subnet: `10.0.1.0/24` per la subnet pubblica, `10.0.2.0/24` per quella privata, entrambe in `us-east-1a`.
-3. Creare la subnet **demo-subnet-public-1a** con CIDR `10.0.1.0/24`.
-4. Creare la subnet **demo-subnet-private-1a** con CIDR `10.0.2.0/24`, nella stessa VPC.
-5. Verificare in console la tab **Route table** di `demo-subnet-public-1a`: risulta associata alla **main route table** della VPC, che contiene solo la rotta locale `10.0.0.0/16 → local`.
-6. Annotare che, a questo punto del corso, nessuna delle due subnet ha ancora una rotta verso un Internet Gateway: `demo-subnet-public-1a` è pubblica solo di nome, non ancora nella sostanza (la rotta verso l'IGW verrà aggiunta nel Lab 05).
-7. Eseguire il cleanup solo se non si prosegue subito con il Lab 05, che riusa la stessa VPC e le stesse subnet.
+1. Selezionare la regione di lavoro (`us-east-1` negli esempi). Aprire **VPC → Your VPCs → Create VPC**, scegliere **VPC only**, nome `demo-vpc`, IPv4 CIDR `10.0.0.0/16`, **Tenancy → Default**, quindi **Create VPC**. Questa rete è separata dalla VPC di default dei Lab 01–03.
+2. Prima di creare le subnet, documentare `10.0.1.0/24` per il livello pubblico e `10.0.2.0/24` per quello privato, entrambe in `us-east-1a`. Se si usa un'altra regione, scegliere un'AZ disponibile e adattare nomi e tabella.
+3. Aprire **Subnets → Create subnet**, selezionare `demo-vpc` e aggiungere `demo-subnet-public-1a`, AZ `us-east-1a`, CIDR `10.0.1.0/24`.
+4. Con **Add new subnet**, aggiungere `demo-subnet-private-1a`, stessa AZ, CIDR `10.0.2.0/24`; scegliere **Create subnet**.
+5. In **Route Tables**, individuare la tabella con **Main = Yes** appartenente a `demo-vpc`. In **Routes**, verificare la sola rotta `10.0.0.0/16 → local`.
+6. In **Subnets**, selezionare ciascuna subnet e aprire **Route table**: entrambe usano implicitamente la main route table finché non si assegna una tabella diversa.
+7. Annotare che nessuna subnet ha ancora una rotta verso Internet Gateway: `public` è per ora solo un nome. Conservare VPC e subnet per il Lab 05 oppure eseguire il cleanup se il percorso termina qui.
 
 ## Esempio di deliverable compilato
 
@@ -74,13 +74,13 @@ Output atteso (illustrativo: gli ID reali variano a ogni creazione):
 +------+-----------------------------+-------------+-------------+
 ```
 
-Verifica della route table associata alla subnet pubblica pianificata:
+Verifica della main route table usata implicitamente dalle due subnet. Il filtro per associazione esplicita alla subnet non la troverebbe in questa fase:
 
 **Ubuntu (bash) / macOS (zsh/bash)**
 
 ```bash
 aws ec2 describe-route-tables \
-  --filters "Name=association.subnet-id,Values=<subnet-id-demo-subnet-public-1a>" \
+  --filters "Name=vpc-id,Values=<vpc-id-demo-vpc>" "Name=association.main,Values=true" \
   --query "RouteTables[].Routes"
 ```
 
@@ -88,7 +88,7 @@ aws ec2 describe-route-tables \
 
 ```powershell
 aws ec2 describe-route-tables `
-  --filters "Name=association.subnet-id,Values=<subnet-id-demo-subnet-public-1a>" `
+  --filters "Name=vpc-id,Values=<vpc-id-demo-vpc>" "Name=association.main,Values=true" `
   --query "RouteTables[].Routes"
 ```
 
@@ -155,6 +155,6 @@ L'assenza di una rotta `0.0.0.0/0` conferma che, a questo stadio, nessuna subnet
 ## Cleanup obbligatorio
 
 - Elimina le subnet create per l'esercitazione, se non più necessarie.
-- Se hai creato una VPC dedicata (non quella di default del Learner Lab), eliminala al termine del lab.
+- Conserva `demo-vpc` e le due subnet se prosegui con il Lab 05; altrimenti elimina le subnet e poi la VPC dedicata.
 - Verifica che non restino subnet orfane con CIDR sovrapposti che potrebbero confondere lab successivi.
 - Conferma nel deliverable che il cleanup è stato completato o indica cosa non è stato possibile rimuovere.

@@ -4,7 +4,7 @@
 
 - Focus operativo: creare un bucket S3 con versioning attivo e una regola di lifecycle, verificando che una sovrascrittura o eliminazione non causi la perdita definitiva dei dati.
 - Deliverable atteso: bucket con versioning attivo, almeno due versioni documentate di un file, regola di lifecycle configurata, evidenza del delete marker.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 08 registrato): bucket `demo-vm-reti-storage-<iniziali>-2026`, file di test `report.txt`, regola di lifecycle `demo-lifecycle-standard-ia`.
+- Nomi di risorsa usati in questa soluzione: bucket `demo-vm-reti-storage-<iniziali>-2026`, file di test `report.txt`, regola di lifecycle `demo-lifecycle-standard-ia`.
 
 
 ## Prerequisiti
@@ -22,13 +22,16 @@
 
 ## Step
 
-1. Creare il bucket **demo-vm-reti-storage-<iniziali>-2026** (nome univoco globale) nella regione abilitata del Learner Lab.
-2. Attivare il **Bucket Versioning** sul bucket appena creato.
-3. Caricare `report.txt` e annotare il **Version ID** generato.
-4. Modificare `report.txt` localmente e ricaricarlo con lo stesso nome: verificare che venga creata una seconda versione, visibile con **Show versions** attivo.
-5. Configurare la regola di lifecycle **demo-lifecycle-standard-ia**: transizione delle versioni non correnti a Standard-IA dopo 30 giorni.
-6. Eliminare `report.txt` (senza selezionare una versione specifica) e confermare scrivendo `permanently delete`: verificare che, con **Show versions** attivo, l'oggetto non sia realmente sparito ma abbia ricevuto un **delete marker**.
-7. Documentare i Version ID, la regola di lifecycle, poi eseguire il cleanup completo.
+1. Preparare sul computer locale `report.txt` con un breve contenuto. In **S3 → Create bucket**, scegliere un nome univoco `demo-vm-reti-storage-<iniziali>-2026` (sostituire il segnaposto, aggiungendo un suffisso se necessario), regione del lab e **Block all public access** attivo.
+2. In **Bucket Versioning**, scegliere **Enable** e creare il bucket. Se esiste già, usare **Properties → Bucket Versioning → Edit → Enable → Save changes**. Attendere la propagazione della prima abilitazione prima di caricare i file.
+3. Aprire il bucket → **Upload → Add files**, selezionare `report.txt` e caricarlo; annotare il Version ID.
+4. Modificare il file localmente e ricaricarlo nella stessa posizione con lo stesso nome. Aprire **Versions** oppure attivare **Show versions**, verificare due Version ID e scaricare la versione precedente per confrontarne il contenuto.
+5. In **Management → Create lifecycle rule**, nome `demo-lifecycle-standard-ia`, ambito **Apply to all objects in the bucket**; confermare l'ambito. Selezionare **Transition noncurrent versions of objects between storage classes → Standard-IA → 30 days after objects become noncurrent** e salvare.
+6. Tornare a **Objects**, disattivare **Show versions**, selezionare `report.txt` e scegliere **Delete**, seguendo la conferma richiesta dalla console. Riattivare **Show versions**: annotare il delete marker e verificare che le due versioni esistano ancora.
+7. Selezionare esclusivamente il **delete marker** e rimuoverlo con **Delete**, confermando l'eliminazione di quella versione. Verificare che il file ricompaia nella vista normale e sia leggibile.
+8. Documentare i Version ID, il recupero e la regola di lifecycle. Conservare il bucket per i Lab 09 e 12 oppure eliminare tutte le versioni, tutti i delete marker e infine il bucket.
+
+La transizione non è immediata: i 30 giorni decorrono da quando la versione diventa non corrente. Inoltre i piccoli file di testo sotto 128 KB non vengono trasferiti dalle regole con il comportamento predefinito; il lab verifica la configurazione, senza attendere una transizione ([limiti delle transizioni S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html)).
 
 ## Esempio di deliverable compilato
 
@@ -157,6 +160,8 @@ Il delete marker (`ghi789...`) conferma che l'oggetto è stato "eliminato" solo 
 - Se l'eliminazione di un file lo fa sparire completamente dalla vista di default, ricorda che con il versioning attivo questo è normale: il file è ancora recuperabile tramite le versioni precedenti.
 
 ## Cleanup obbligatorio
+
+Se prosegui con i Lab 09 e 12, conserva bucket, versioning, regola e un oggetto di test leggibile; annota il riuso. Al termine elimina le risorse con i passaggi seguenti.
 
 - Elimina tutte le versioni degli oggetti nel bucket di test (non solo la versione corrente), incluso ogni delete marker.
 - Elimina il bucket di test una volta svuotato completamente.

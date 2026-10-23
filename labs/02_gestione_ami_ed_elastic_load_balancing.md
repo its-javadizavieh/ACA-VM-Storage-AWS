@@ -3,8 +3,8 @@
 ## Obiettivo
 
 - Focus operativo: creare una AMI riutilizzabile, lanciare una seconda istanza dalla stessa AMI e distribuire il traffico su entrambe con un Application Load Balancer che esclude automaticamente istanze non sane.
-- Deliverable atteso: AMI documentata, ALB con target group e due istanze registrate, evidenza dello stato healthy/unhealthy prima e dopo un guasto simulato.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 02 registrato): AMI `demo-web-ami-v1`, istanze `demo-web-01`/`demo-web-02`, load balancer `demo-alb`, target group `demo-tg-web`.
+- Deliverable atteso: AMI documentata, ALB con target group e due istanze registrate, evidenza dello stato dei target prima e dopo un guasto simulato.
+- Nomi di risorsa usati in questa soluzione: AMI `demo-web-ami-v1`, istanze `demo-web-01`/`demo-web-02`, load balancer `demo-alb`, target group `demo-tg-web`.
 
 ## Prerequisiti
 
@@ -21,13 +21,31 @@
 
 ## Step
 
-1. Fermare l'istanza sorgente `demo-web-01` (dal Lab 01) per garantire uno stato coerente al momento dello snapshot.
-2. Creare una AMI **demo-web-ami-v1** da `demo-web-01`, attendere lo stato `available` (richiede alcuni minuti per gli snapshot EBS sottostanti).
-3. Riavviare `demo-web-01`, poi lanciare `demo-web-02` dalla stessa AMI in una subnet diversa (altra Availability Zone), riusando key pair e Security Group.
-4. Creare un target group `demo-tg-web` (HTTP, porta 80, health check su `/`) e registrare entrambe le istanze.
-5. Creare l'Application Load Balancer `demo-alb` (internet-facing, listener HTTP:80 verso `demo-tg-web`), con Security Group che permette traffico in ingresso sulla porta 80.
-6. Verificare che entrambe le istanze risultino `healthy` nel target group.
-7. Fermare `demo-web-02` e osservare che il target group la escluda entro pochi controlli di health check; riavviarla e verificare il ritorno a `healthy`.
+1. Avviare `demo-web-01` del Lab 01, collegarsi in SSH e preparare il web server con i comandi sotto. Verificare una risposta HTTP 200 su `/` prima di creare la AMI; la sola apertura della porta 80 non installa il servizio.
+2. In **EC2 → Instances**, selezionare `demo-web-01`, **Instance state → Stop instance** e attendere `stopped`. Aprire **Actions → Image and templates → Create image**, nome `demo-web-ami-v1`, descrizione della configurazione e volumi invariati; scegliere **Create image**.
+3. In **Images → AMIs**, attendere `available` e annotare AMI ID e snapshot associati. Riavviare `demo-web-01` con **Start instance**.
+4. Selezionare la AMI → **Launch instance from AMI**: nome `demo-web-02`, `t3.micro`, key pair `demo-key`, stessa VPC, subnet pubblica in un'altra AZ, IP pubblico abilitato, gruppo esistente `demo-sg-web`. Attendere gli status check e verificare il web server anche sulla seconda istanza.
+5. In **Target Groups → Create target group**, scegliere **Instances**, nome `demo-tg-web`, **HTTP:80**, stessa VPC e health check path `/`. Con **Next**, selezionare entrambe le istanze → **Include as pending below → Create target group**.
+6. In **Load Balancers → Create load balancer → Application Load Balancer**, impostare `demo-alb`, **Internet-facing**, stessa VPC e due subnet pubbliche in AZ diverse. Associare `demo-sg-web` e configurare il listener **HTTP:80 → Forward to demo-tg-web**; creare il bilanciatore.
+7. Attendere lo stato ALB `active`; in **Target Groups → demo-tg-web → Targets**, verificare entrambe le istanze `healthy`. Se necessario controllare il servizio HTTP e la porta 80 dal bilanciatore alle istanze.
+8. Copiare il **DNS name** dell'ALB e aprire `http://<DNS-ALB>/` nel browser. Annotare la risposta e verificare che il servizio resti raggiungibile durante la prova successiva.
+9. Fermare `demo-web-02` da EC2, osservare lo stato del target e verificare che l'ALB continui a servire richieste tramite `demo-web-01`. Un'istanza fermata può risultare `unused` con motivo `Target.InvalidState`; un servizio HTTP guasto su un'istanza attiva può risultare `unhealthy`. Riavviare l'istanza e attendere il ritorno a `healthy`.
+10. Documentare gli stati realmente osservati. Se si prosegue subito con il Lab 03, conservare AMI, snapshot, ALB e target group; altrimenti eseguire il cleanup completo.
+
+### Preparare il web server prima della AMI
+
+Eseguire nella sessione SSH su **Amazon Linux 2023**, anche se il terminale locale è PowerShell:
+
+```bash
+sudo dnf install -y httpd
+echo 'Servizio web del laboratorio AWS' | sudo tee /var/www/html/index.html
+sudo systemctl enable --now httpd
+curl -I http://localhost/
+```
+
+La risposta deve essere HTTP 200. `enable` permette al servizio di ripartire anche sulle istanze create dalla AMI. Procedura di riferimento: [web server su Amazon Linux 2023](https://docs.aws.amazon.com/linux/al2023/ug/ec2-lamp-amazon-linux-2023.html).
+
+Per distinguere i due backend, dopo il lancio eseguire `hostname | sudo tee /var/www/html/index.html` su ciascuna istanza. Ricaricare la pagina dell'ALB senza assumere un'alternanza fissa a ogni richiesta.
 
 ## Esempio di deliverable compilato
 
@@ -96,12 +114,12 @@ Output atteso **dopo** lo stop di `demo-web-02` (entro pochi controlli di health
 {
     "TargetHealthDescriptions": [
         {"Target": {"Id": "i-demoweb01", "Port": 80}, "TargetHealth": {"State": "healthy"}},
-        {"Target": {"Id": "i-demoweb02", "Port": 80}, "TargetHealth": {"State": "unhealthy", "Reason": "Target.Timeout"}}
+        {"Target": {"Id": "i-demoweb02", "Port": 80}, "TargetHealth": {"State": "unused", "Reason": "Target.InvalidState"}}
     ]
 }
 ```
 
-Il campo `TargetHealth.State` conferma che il load balancer ha rilevato automaticamente l'istanza guasta, senza intervento manuale sul target group o sull'ALB.
+Lo stato illustrato è coerente con un target fermato ([stati dei target ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/check-target-health.html)). Il campo `TargetHealth.State` conferma che il load balancer ha rilevato automaticamente l'istanza guasta, senza intervento manuale sul target group o sull'ALB.
 
 ## Template operativo
 
@@ -120,7 +138,7 @@ Il campo `TargetHealth.State` conferma che il load balancer ha rilevato automati
 
 ## Evidenza health check
 - Prima dello stop: entrambe healthy
-- Dopo lo stop di demo-web-02: demo-web-01 healthy, demo-web-02 unhealthy
+- Dopo lo stop di demo-web-02: demo-web-01 healthy, demo-web-02 unused (Target.InvalidState)
 - Dopo il riavvio: entrambe healthy
 
 ## Cleanup
@@ -131,9 +149,9 @@ Il campo `TargetHealth.State` conferma che il load balancer ha rilevato automati
 ## Esempio sintetico
 
 - Decisione corretta: fermare l'istanza sorgente prima di creare la AMI, per evitare di catturare uno stato incoerente dei volumi EBS collegati.
-- Evidenza minima: stato `healthy`/`unhealthy` del target group osservato prima e dopo il guasto simulato, non solo la configurazione statica.
+- Evidenza minima: stato dei target (`healthy` prima, escluso dopo lo stop) osservato prima e dopo il guasto simulato, non solo la configurazione statica.
 - Fallback accettabile: se il Learner Lab non è raggiungibile, documentare i passaggi (AMI, target group, listener) su scheda Markdown senza creare risorse reali.
-- Cleanup atteso: ALB e target group eliminati, entrambe le istanze terminate, AMI deregistrata e snapshot rimossi.
+- Cleanup atteso: completo se il percorso termina qui; se si prosegue subito con il Lab 03, documentare le risorse mantenute e verificarne il consumo di crediti.
 
 ## Checkpoint
 
@@ -157,6 +175,8 @@ Il campo `TargetHealth.State` conferma che il load balancer ha rilevato automati
 - Se la seconda istanza non trova la AMI, verifica che la AMI sia nello stato `available` e nella stessa regione.
 
 ## Cleanup obbligatorio
+
+Se si prosegue subito con il Lab 03, conservare AMI, snapshot, ALB e target group e documentare il riuso. Le istanze originali possono essere fermate tra le sessioni. Al termine del percorso, applicare i passaggi seguenti.
 
 - Elimina il load balancer e il target group creati per l'esercitazione.
 - Termina entrambe le istanze EC2 usate nel lab.

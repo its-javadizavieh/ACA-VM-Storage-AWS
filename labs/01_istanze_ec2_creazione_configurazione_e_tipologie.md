@@ -5,7 +5,7 @@
 - Focus operativo: avviare un'istanza EC2 coerente con uno scenario a basso traffico e budget limitato, scegliendo tipo, AMI, key pair e Security Group corretti, poi verificarne la raggiungibilità in SSH.
 - Deliverable atteso: istanza `running` (poi fermata/terminata) con tipo, AMI ID e Security Group documentati, evidenza SSH riuscita, nota di motivazione della scelta.
 - Forma consigliata: file Markdown con tabella di configurazione e output di verifica.
-- Nomi di risorsa usati in questa soluzione (coerenti con il Demo 01 registrato): istanza `demo-web-01`, key pair `demo-key`, Security Group `demo-sg-web`.
+- Nomi di risorsa usati in questa soluzione: istanza `demo-web-01`, key pair `demo-key`, Security Group `demo-sg-web`.
 
 ## Prerequisiti
 
@@ -22,15 +22,15 @@
 
 ## Step
 
-1. Avviare il Learner Lab (**Start Lab**) e attendere il pallino verde prima di aprire la AWS Management Console.
-2. In EC2 → **Instances** → **Launch instances**, impostare **Name** = `demo-web-01` e lasciare selezionata l'AMI **Amazon Linux 2023** (prima opzione proposta, Free tier eligible).
-3. Nella sezione **Instance type**, selezionare `t3.micro`: coerente con un servizio web a basso traffico e ben dentro il limite `.large` della policy del Learner Lab.
-4. Creare una key pair **demo-key** (tipo RSA, formato `.pem`), scaricarla immediatamente e impostare i permessi con `chmod 400`.
-5. In **Network settings**, creare un Security Group **demo-sg-web** con due sole regole inbound: SSH (porta 22) ristretta a **My IP**, HTTP (porta 80) aperta a `0.0.0.0/0`.
-6. Lasciare lo storage di default (8 GiB, `gp3`), aggiungere il tag `Name = demo-web-01`, controllare il riepilogo e cliccare **Launch instance**.
-7. Attendere lo stato `running` e il **Status check** `2/2 checks passed`, poi recuperare il **Public IPv4 address** dal tab Details.
-8. Connettersi in SSH e verificare che il prompt di Amazon Linux compaia correttamente.
-9. Documentare tipo istanza, AMI ID, Security Group e motivazione, poi eseguire il cleanup.
+1. Avviare il Learner Lab (**Start Lab**), attendere il pallino verde e aprire la AWS Management Console. Selezionare `us-east-1` oppure `us-west-2` e mantenere la stessa regione per le risorse collegate.
+2. Aprire **EC2 → Instances → Launch instances**. Impostare **Name** = `demo-web-01`, AMI **Amazon Linux 2023**, architettura x86_64 e **Instance type** = `t3.micro`.
+3. In **Key pair → Create new key pair**, creare `demo-key` di tipo **RSA**, formato **.pem**. Scaricarla e conservarla sul computer locale; impostare i permessi con i comandi della sezione seguente.
+4. In **Network settings → Edit**, scegliere la **VPC di default**, una subnet con rotta verso Internet Gateway e **Auto-assign public IP → Enable**. Annotare subnet e Availability Zone. Se la VPC di default non esiste, preparare prima una rete pubblica seguendo i Lab 04 e 05.
+5. Selezionare **Create security group**, nome `demo-sg-web`: inbound **SSH/TCP 22 → My IP** e **HTTP/TCP 80 → Anywhere-IPv4 (`0.0.0.0/0`)**. Lasciare l'uscita consentita per installare i pacchetti.
+6. In **Configure storage**, impostare 8 GiB, tipo `gp3`; controllare il tag `Name`, il riepilogo e scegliere **Launch instance**.
+7. Attendere `running` e il superamento di tutti gli status check mostrati dalla console. In **Details**, annotare Instance ID, AMI ID e **Public IPv4 address**; in **Security**, verificare il gruppo effettivamente associato.
+8. Dal terminale locale collegarsi con `ssh -i ... ec2-user@...`, usando la chiave e l'IP reali. Verificare il prompt Amazon Linux e annotare l'esito.
+9. Compilare il deliverable con configurazione e motivazione della scelta. Se si prosegue con il Lab 02, fermare l'istanza senza terminarla; altrimenti eseguire il cleanup completo.
 
 ## Esempio di deliverable compilato
 
@@ -40,7 +40,7 @@
 |    2 | AMI                      | Amazon Linux 2023, `ami-0abcdef1234567890` (esempio illustrativo)             |
 |    3 | Key pair                 | `demo-key`, RSA, `.pem` scaricato e con permessi `chmod 400`                  |
 |    4 | Security Group           | `demo-sg-web`: SSH (22) da My IP, HTTP (80) da `0.0.0.0/0`                    |
-|    5 | Verifica raggiungibilità | stato `running`, status check `2/2 checks passed`, SSH riuscito               |
+|    5 | Verifica raggiungibilità | stato `running`, tutti gli status check superati, SSH riuscito               |
 
 ## Comandi eseguiti e output
 
@@ -119,11 +119,11 @@ Il prompt `[ec2-user@ip-10-...]$` conferma che l'istanza è raggiungibile e che 
 
 ## Motivazione scelta tipo istanza
 - Carico atteso: basso traffico didattico
-- t3.micro copre il carico previsto, resta nel Free Tier e rispetta il limite .large del Learner Lab
+- t3.micro copre il carico previsto, limita il consumo dei crediti e rispetta il limite .large del Learner Lab
 
 ## Evidenza raggiungibilità
 - Stato istanza: running
-- Status check: 2/2 checks passed
+- Status check: tutti gli status check superati
 - SSH: connessione riuscita (prompt ec2-user@...)
 
 ## Cleanup
@@ -162,7 +162,7 @@ Il prompt `[ec2-user@ip-10-...]$` conferma che l'istanza è raggiungibile e che 
 
 ## Cleanup obbligatorio
 
-- Ferma (`Stop`) o termina (`Terminate`) l'istanza EC2 creata per l'esercitazione.
+- Se prosegui con il Lab 02, usa **Stop** e conserva istanza, key pair e Security Group; documenta il riuso. Se il percorso termina qui, usa **Terminate** e rimuovi le risorse dedicate non più necessarie.
 - Rilascia eventuali Elastic IP allocati manualmente durante il lab.
 - Verifica in console che non restino istanze `running` non necessarie prima di chiudere la sessione del Learner Lab.
 - Conferma nel deliverable che il cleanup è stato completato o indica cosa non è stato possibile rimuovere.

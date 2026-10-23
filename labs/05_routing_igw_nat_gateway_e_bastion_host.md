@@ -89,14 +89,7 @@ Host lab-private
     ProxyJump lab-bastion
 ```
 
-Dopo aver salvato `~/.ssh/config`, impostare i permessi della chiave e del file di configurazione dal terminale **locale Ubuntu (bash) / macOS (zsh/bash)**:
-
-```bash
-chmod 400 ~/Downloads/demo-key.pem
-chmod 600 ~/.ssh/config
-```
-
-Dal terminale **locale**, collegarsi in SSH:
+Applicare alla chiave i permessi del Lab 01. Dal terminale **locale**:
 
 ```bash
 ssh lab-bastion

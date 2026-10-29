@@ -1,0 +1,10 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+terraform.tfvars
+crash.log
+crash.*.log
+report.txt
+# Conservare invece in Git .terraform.lock.hcl e terraform.tfvars.example.

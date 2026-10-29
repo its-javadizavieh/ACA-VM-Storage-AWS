@@ -20,3 +20,6 @@
 !/labs/iac_esempi/iac_01_cloudformation_rete.md
 !/labs/iac_esempi/cloudformation/
 !/labs/iac_esempi/cloudformation/**
+!/labs/iac_esempi/iac_02_terraform_s3.md
+!/labs/iac_esempi/terraform-s3/
+!/labs/iac_esempi/terraform-s3/**

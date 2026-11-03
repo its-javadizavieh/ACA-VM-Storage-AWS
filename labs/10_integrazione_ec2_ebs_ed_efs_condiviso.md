@@ -22,12 +22,44 @@
 ## Step
 
 1. Preparare due istanze **Amazon Linux 2023**, `demo-web-01` e `demo-web-02`, nella stessa VPC e in due AZ diverse, raggiungibili in SSH e con accesso ai repository dei pacchetti. Riavviare quelle conservate oppure crearle seguendo il Lab 01. Usare istanze indipendenti dall'ASG, così una sostituzione automatica non interrompe la prova.
-2. In **EC2 → Volumes**, verificare per ogni istanza un volume dati `gp3` da 10 GiB nella sua AZ: riusare `demo-data-vol` sulla prima se compatibile e creare `demo-data-vol-02` per la seconda. Allegarli, individuare i device e montarli su `/mnt/demo-data` seguendo il Lab 07. Non riformattare un volume riusato.
+2. In **EC2 → Volumes**, verificare per ogni istanza un volume dati `gp3` da 10 GiB nella sua AZ: riusare `demo-data-vol` sulla prima se compatibile e creare `demo-data-vol-02` per la seconda. Allegarli, individuare i device e montarli su `/mnt/demo-data` seguendo il [Lab 07, sezione «Comandi eseguiti e output»](07_differenze_ebs_efs_s3_e_gestione_volumi_ebs.md#comandi-eseguiti-e-output). Non riformattare un volume riusato.
+
 3. Verificare nella VPC **DNS resolution** e **DNS hostnames** abilitati. In **EC2 → Security Groups → Create security group**, creare `demo-sg-efs` nella VPC delle istanze; inbound **NFS/TCP 2049**, origine il Security Group delle istanze applicative (una regola per ogni gruppo client se diversi).
+
+    Per le impostazioni DNS: **VPC → Your VPCs → selezionare la VPC → Actions → Edit VPC settings**, abilitare **DNS resolution** e **DNS hostnames**, quindi salvare. Nel gruppo `demo-sg-efs` aggiungere **Inbound rules → NFS → TCP 2049 → Source: ID del Security Group delle istanze**, quindi salvare. Se l'uscita dei gruppi client è stata ristretta, consentire anche TCP 2049 verso il gruppo dei mount target; il gruppo va associato ai mount target nello Step 5.
+
 4. In **EFS → Create file system**, impostare `demo-efs-shared` e la stessa VPC; scegliere un file system **Regional**, storage Standard e prestazioni **General Purpose**. Creare il file system e annotare l'ID `fs-...`.
 5. Aprire **EFS → demo-efs-shared → Network → Manage**. Verificare o creare un mount target in ciascuna AZ delle due istanze, scegliendo una subnet di quella AZ. Associare `demo-sg-efs` a ogni target e rimuovere gruppi non necessari; attendere `available`.
 6. In due sessioni SSH, installare `amazon-efs-utils`, creare `/mnt/efs-shared` e montare con l'ID reale usando i comandi sotto. In presenza di NACL personalizzate, verificare NFS e traffico di ritorno; ripristinare prima la NACL di test del Lab 06.
+
+    Eseguire **su entrambe le istanze, nelle rispettive sessioni SSH**. Sostituire `fs-0123456789abcdef0` con lo stesso File system ID reale letto in console:
+
+    ```bash
+    sudo dnf install -y amazon-efs-utils
+    sudo mkdir -p /mnt/efs-shared
+    LAB_EFS_ID=fs-0123456789abcdef0
+    sudo mount -t efs -o tls "$LAB_EFS_ID":/ /mnt/efs-shared
+    findmnt --mountpoint /mnt/efs-shared
+    ```
+
+    `mkdir -p` crea la directory anche se non esiste ancora; `-o tls` abilita la cifratura del collegamento EFS. Usare l'ID `fs-...`, non il tag `demo-efs-shared`. Se il file system è già montato correttamente, eseguire soltanto la verifica finale. Se il mount fallisce, risolvere l'errore prima di continuare. Riferimento: [mount helper EFS su EC2 Linux](https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-helper-ec2-linux.html).
+
 7. Verificare con `findmnt` su entrambe le istanze che il mount sia riuscito prima di scrivere: altrimenti si scriverebbe nella directory locale. Scrivere `condiviso.txt` sulla prima e leggerlo sulla seconda.
+
+    **Nella sessione SSH di `demo-web-01`:**
+
+    ```bash
+    findmnt --mountpoint /mnt/efs-shared && echo "scritto dalla istanza 1" | sudo tee /mnt/efs-shared/condiviso.txt
+    ```
+
+    **Nella sessione SSH di `demo-web-02`:**
+
+    ```bash
+    findmnt --mountpoint /mnt/efs-shared && cat /mnt/efs-shared/condiviso.txt
+    ```
+
+    `&&` esegue la scrittura o la lettura solo se il controllo del mount riesce. Il contenuto atteso sulla seconda istanza è `scritto dalla istanza 1`, senza aver copiato il file. `/mnt/demo-data` è invece il percorso del volume EBS separato di ciascuna istanza: lo stesso nome della directory non rende condivisi i due dischi.
+
 8. Confrontare la directory EFS condivisa con i due volumi EBS separati; documentare ID, AZ, mount target e output, poi eseguire il cleanup.
 
 ## Esempio di deliverable compilato
@@ -41,6 +73,8 @@
 |    5 | Evidenza condivisione | `condiviso.txt` scritto da `demo-web-01`, letto identico da `demo-web-02`                 |
 
 ## Comandi eseguiti e output
+
+I blocchi seguenti riepilogano i comandi degli Step 6 e 7: se già eseguiti con successo, non ripetere il montaggio.
 
 Installazione e mount da eseguire **su entrambe le istanze Amazon Linux 2023**, nelle sessioni SSH (anche con terminale locale PowerShell). Sostituire `fs-0123456789abcdef0` con l'ID della console EFS, uguale su entrambe:
 

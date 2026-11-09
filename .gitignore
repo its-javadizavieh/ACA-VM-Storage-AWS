@@ -14,6 +14,7 @@
 !/labs/08*
 !/labs/09*
 !/labs/10*
+!/labs/11*
 
 # Publish the CloudFormation IaC example and its template files.
 !/labs/iac_esempi/

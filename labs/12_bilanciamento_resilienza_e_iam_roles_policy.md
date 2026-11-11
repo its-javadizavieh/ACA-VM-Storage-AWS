@@ -19,20 +19,9 @@
 - Devi analizzare le metriche CloudWatch di un'istanza esistente per capire se il limite prevalente è di rete o di storage.
 - Devi scrivere una policy minima di sola lettura su un bucket S3 e verificarne il comportamento con il simulatore, senza allegarla a un ruolo o cambiare le autorizzazioni dell'ambiente.
 
-## Permessi effettivi del Learner Lab
+## Uso di IAM nell'esercitazione
 
-Il confronto con `AWS Academy Learner Lab lab.policy` e con le policy `VocLabPolicy1/2/3` collegate a `LabRole` in `AWS Academy Learner Lab lab.template` corregge la precedente indicazione sulla creazione di ruoli:
-
-| Azione | Nei documenti forniti |
-| --- | --- |
-| `iam:CreatePolicy`, `iam:CreateInstanceProfile` | Presenti in `IamLimited` |
-| `iam:Get*`, `iam:List*`, `iam:Sim*` | Presenti in `IamLimited`, con le restrizioni sulle risorse protette |
-| `iam:CreateRole`, `iam:AttachRolePolicy` | Nessun Allow per normali ruoli applicativi nuovi |
-| `iam:PutRolePolicy` | Allow limitato ai service-linked role indicati, non a un ruolo arbitrario |
-| `iam:PassRole` | Limitato agli ARN e alle condizioni indicati; non copre un nuovo `demo-role-s3-readonly` |
-| Modifiche/cancellazioni di `LabRole` e risorse Academy protette | Soggette a Deny espliciti |
-
-La creazione di un instance profile o di una policy non autorizza anche la creazione di un ruolo o l'associazione della policy a quel ruolo. I ruoli dichiarati nel template Academy vengono predisposti dal provisioning dell'ambiente, non dimostrano i permessi dello studente. L'assenza di un Allow applicabile produce un diniego implicito; `CreateServiceLinkedRole` è un'azione distinta da `CreateRole`.
+La parte IAM consiste nello scrivere una policy JSON e simularne le decisioni. Non occorre creare un ruolo, allegare policy o modificare l'instance profile dell'istanza. `LabRole` e `LabInstanceProfile` sono già predisposti dall'Academy e vanno lasciati invariati.
 
 ## Step
 
@@ -222,6 +211,6 @@ La trust policy mostra chi può assumere un ruolo; non è l'elenco delle operazi
 ## Cleanup obbligatorio
 
 - Conservare il JSON e gli esiti come evidenza didattica; non contengono credenziali.
-- Non eliminare o modificare `LabRole`, `LabInstanceProfile`, le policy `VocLabPolicy*` o i componenti di monitoring Academy.
+- Non eliminare o modificare `LabRole`, `LabInstanceProfile` o i componenti di sistema e monitoring Academy.
 - Fermare le istanze e rimuovere solo le risorse di test proprie non più necessarie, seguendo i cleanup dei Lab 07/08; documentare quelle conservate per i lab successivi.
 - Non dichiarare eliminati ruoli o policy di test: questa procedura non ne ha creati.
